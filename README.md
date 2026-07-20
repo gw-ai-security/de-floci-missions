@@ -2,6 +2,39 @@
 
 Lokale, kostenfreie Data-Engineering-Laborplattform für den Missionenplan **M00 bis M43**. Floci stellt AWS-kompatible APIs bereit, die offizielle Floci UI zeigt lokale AWS-Ressourcen, und die eigene Mission-Control-Web-UI hält den Lernfortschritt persistent fest.
 
+## Projektstand
+
+**Stand:** 20. Juli 2026
+
+| Bereich | Status |
+|---|---|
+| Plattform-Core | eingerichtet und für S3-Missionen nutzbar |
+| M01 – S3 Data Lake Fundamentals | abgeschlossen; Artefakte unter [`missions/M01-s3-data-lake/`](missions/M01-s3-data-lake/) |
+| M02 – S3 Lifecycle, Versioning und Resilienz | aktuelle Mission |
+| M02-Workspace | wird zu Beginn der Mission unter `missions/M02-s3-lifecycle-resilience/` angelegt |
+
+Der Fortschritt in Mission Control bleibt die operative Fortschrittsanzeige. Die README-Dateien dokumentieren zusätzlich den versionierten Stand des Repositorys.
+
+## Aktuelle Mission: M02
+
+M02 erweitert den in M01 aufgebauten Bucket `northstar-data-lake` um Schutz- und Lifecycle-Mechanismen.
+
+**Schwerpunkte:**
+
+- S3 Versioning und Version IDs
+- Delete Marker und Wiederherstellung
+- Lifecycle Rules: Transition und Expiration
+- Storage-Class-Entscheidungen
+- Replication als Resilienzmechanismus, aber nicht als Backup-Ersatz
+- Object Lock, Verschlüsselung sowie RPO/RTO
+- Backup-/Restore-Runbook und Failure Injection
+
+**Lokale Laufzeit:** nur der Core; kein zusätzliches Compose-Profil erforderlich.
+
+**Wichtige Grenze:** M02 ist als Emulationsklasse A/B eingeordnet. Versionierungs- und grundlegende S3-Operationen können lokal praktisch geprüft werden. Reale Storage-Class-Übergänge, Glacier-Abrufzeiten, Multi-Region-Replikation, Object-Lock-Compliance und vollständige AWS-Security-Semantik müssen im AWS-Reality-Check getrennt bewertet werden.
+
+Die verbindlichen Aufgaben stehen im [`DEA-C01 Floci Hands-on Missionenplan`](content/DEA-C01_Floci_Hands-on_Missionenplan.md).
+
 ## Schnellstart unter Windows
 
 Voraussetzungen: Windows 10/11, Docker Desktop mit WSL2/Linux-Containern, PowerShell 7 und Git.
@@ -38,9 +71,9 @@ docker compose --profile tools run --rm toolbox bash
 Anwendungscode verwendet den Endpoint aus der Umgebung und keine proprietäre Floci-API:
 
 ```text
-Host:       AWS_ENDPOINT_URL=http://localhost:4566
-Container:  AWS_ENDPOINT_URL=http://floci:4566
-Region:     eu-central-1
+Host:        AWS_ENDPOINT_URL=http://localhost:4566
+Container:   AWS_ENDPOINT_URL=http://floci:4566
+Region:      eu-central-1
 Credentials: test / test (nur lokal)
 ```
 
@@ -94,6 +127,14 @@ docker compose config --quiet
 
 Der Core provisioniert absichtlich keine Missions-Buckets, Queues, Tabellen, Funktionen, Rollen oder Datenbanken. Diese Ressourcen entstehen beim Lernen über GUI, CLI/SDK und IaC.
 
-## Nächster Schritt
+## Nächster technischer Schritt
 
-Öffne Mission Control, klappe **M00 – Floci Engineering Foundation** auf und beginne mit dem ersten noch offenen Meilenstein.
+Vor Änderungen an `northstar-data-lake` wird in M02 zuerst der Ist-Zustand erfasst:
+
+```powershell
+.\scripts\verify-core.ps1 -SkipRestart
+docker compose exec floci awslocal s3api get-bucket-versioning --bucket northstar-data-lake
+docker compose exec floci awslocal s3api list-object-versions --bucket northstar-data-lake --prefix raw/orders/
+```
+
+Erst danach wird Versioning aktiviert. So bleibt nachvollziehbar, welche Objekte bereits vor der Versionierung existierten und welches Verhalten Floci tatsächlich unterstützt.
