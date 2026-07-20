@@ -1,0 +1,3 @@
+﻿order_id,customer_id,status
+M02-001,CUST-100,PROCESSED
+M02-002,CUST-200,CREATED
