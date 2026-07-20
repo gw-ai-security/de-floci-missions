@@ -156,13 +156,13 @@ Dieses Muster verhindert, dass eine technisch vorhandene, aber fachlich ungülti
 
 ```mermaid
 stateDiagram-v2
-    [*] --> SourcePruefen
+    [*] --> SourcePrüfen
 
-    SourcePruefen --> Fehler: Source fehlt
-    SourcePruefen --> ManifestPruefen: Source vorhanden
+    SourcePrüfen --> Fehler: Source fehlt
+    SourcePrüfen --> ManifestPruefen: Source vorhanden
 
-    ManifestPruefen --> Skip: ETag unverändert
-    ManifestPruefen --> Verarbeiten: Manifest fehlt oder ETag geändert
+    ManifestPrüfen --> Skip: ETag unverändert
+    ManifestPrüfen --> Verarbeiten: Manifest fehlt oder ETag geändert
 
     Verarbeiten --> Fehler: leer / ungültig / keine Datenzeilen
     Verarbeiten --> Commit: Validierung erfolgreich
