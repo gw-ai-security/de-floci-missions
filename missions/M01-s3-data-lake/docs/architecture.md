@@ -159,7 +159,7 @@ stateDiagram-v2
     [*] --> SourcePrüfen
 
     SourcePrüfen --> Fehler: Source fehlt
-    SourcePrüfen --> ManifestPruefen: Source vorhanden
+    SourcePrüfen --> ManifestPrüfen: Source vorhanden
 
     ManifestPrüfen --> Skip: ETag unverändert
     ManifestPrüfen --> Verarbeiten: Manifest fehlt oder ETag geändert
