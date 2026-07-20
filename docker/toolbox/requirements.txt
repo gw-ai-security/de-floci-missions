@@ -1,7 +1,7 @@
 # Versionen werden im Dockerfile gepinnt, damit Image und Lock-Dokument synchron bleiben.
 boto3==1.39.3
 botocore==1.39.3
-pytest==8.4.1
+pytest==9.0.3
 testcontainers==4.10.0
 pandas==2.3.1
 pyarrow==20.0.0
