@@ -1,0 +1,9 @@
+.git
+.env
+.idea
+.vscode
+data
+progress
+node_modules
+__pycache__
+*.log

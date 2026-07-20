@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#08131f" />
+    <title>Northstar Mission Control</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="ambient ambient-one"></div>
+    <div class="ambient ambient-two"></div>
+    <header class="topbar">
+      <a class="brand" href="#top" aria-label="Mission Control Startseite">
+        <span class="brand-mark" aria-hidden="true">N</span>
+        <span><strong>Northstar</strong><small>Mission Control</small></span>
+      </a>
+      <nav aria-label="Lokale Werkzeuge">
+        <a href="http://localhost:4500" target="_blank" rel="noreferrer">Floci UI <span>↗</span></a>
+        <a href="http://localhost:4566/_floci/health" target="_blank" rel="noreferrer">Runtime <span>↗</span></a>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <div class="eyebrow"><span></span> DEA-C01 · 44 Hands-on Missionen</div>
+        <div class="hero-grid">
+          <div>
+            <h1>Dein Weg vom<br /><em>Plan zur Praxis.</em></h1>
+            <p>Arbeite jede Mission Schritt für Schritt ab. Dein Fortschritt bleibt lokal gespeichert und jede vollständig abgeschlossene Mission wird automatisch markiert.</p>
+          </div>
+          <div class="overall-card" aria-live="polite">
+            <div class="ring" id="overall-ring"><span id="overall-percent">0%</span></div>
+            <div><strong id="overall-label">Bereit zum Start</strong><small id="overall-detail">0 von 44 Missionen erledigt</small></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="stats" aria-label="Fortschrittsübersicht">
+        <article><span class="stat-icon teal">✓</span><div><strong id="stat-completed">0</strong><small>Erledigt</small></div></article>
+        <article><span class="stat-icon amber">↗</span><div><strong id="stat-active">0</strong><small>In Arbeit</small></div></article>
+        <article><span class="stat-icon blue">○</span><div><strong id="stat-open">44</strong><small>Noch offen</small></div></article>
+        <article><span class="stat-icon violet">◆</span><div><strong id="stat-milestones">0 / 0</strong><small>Meilensteine</small></div></article>
+      </section>
+
+      <section class="workspace">
+        <div class="section-heading">
+          <div><span class="eyebrow compact">MISSIONEN</span><h2>Roadmap</h2></div>
+          <p id="updated-label">Fortschritt wird lokal gespeichert</p>
+        </div>
+
+        <div class="controls">
+          <label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Mission, Service oder Thema suchen …" autocomplete="off" /></label>
+          <div class="filters" role="group" aria-label="Missionen filtern">
+            <button class="active" data-filter="all">Alle <span id="count-all">44</span></button>
+            <button data-filter="not-started">Offen <span id="count-open">44</span></button>
+            <button data-filter="in-progress">In Arbeit <span id="count-active">0</span></button>
+            <button data-filter="completed">Erledigt <span id="count-completed">0</span></button>
+          </div>
+        </div>
+
+        <div id="mission-list" class="mission-list" aria-live="polite"></div>
+        <div id="empty-state" class="empty-state" hidden><span>⌕</span><h3>Keine Mission gefunden</h3><p>Ändere den Suchbegriff oder den Filter.</p></div>
+      </section>
+    </main>
+
+    <footer><span>Northstar Commerce Data Platform</span><span>Fortschritt lokal · keine Cloud-Kosten</span></footer>
+    <template id="mission-template">
+      <article class="mission-card">
+        <button class="mission-summary" type="button" aria-expanded="false">
+          <span class="mission-number"></span>
+          <span class="mission-main"><span class="mission-kicker"></span><strong class="mission-title"></strong><span class="mission-meta"></span></span>
+          <span class="mission-progress"><span class="mission-count"></span><span class="mini-track"><i></i></span></span>
+          <span class="mission-status"></span>
+          <span class="chevron" aria-hidden="true">⌄</span>
+        </button>
+        <div class="mission-body" hidden>
+          <div class="body-intro"><div><span>MEILENSTEINE</span><strong class="body-count"></strong></div><p>Hake jeden Schritt ab. Sobald alles erledigt ist, gilt die Mission als abgeschlossen.</p></div>
+          <div class="milestones"></div>
+        </div>
+      </article>
+    </template>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

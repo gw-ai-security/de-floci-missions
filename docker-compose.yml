@@ -1,0 +1,419 @@
+name: dea-floci-missions
+
+x-aws-environment: &aws-environment
+  AWS_ENDPOINT_URL: http://floci:4566
+  AWS_ENDPOINT_URL_INTERNAL: http://floci:4566
+  AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-eu-central-1}
+  AWS_REGION: ${AWS_REGION:-eu-central-1}
+  AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-test}
+  AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-test}
+  AWS_ACCOUNT_ID: ${AWS_ACCOUNT_ID:-000000000000}
+
+x-service-defaults: &service-defaults
+  restart: unless-stopped
+  networks:
+    - dea_floci_net
+
+services:
+  floci:
+    <<: *service-defaults
+    image: floci/floci:1.5.33-compat@sha256:2303afd62d098444ac037486dd2f4fabcf794153dc11b0355224416d06dbe751
+    container_name: dea-floci
+    user: root
+    ports:
+      - "127.0.0.1:${FLOCI_PORT:-4566}:4566"
+    environment:
+      FLOCI_HOSTNAME: floci
+      FLOCI_BASE_URL: http://floci:4566
+      FLOCI_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-eu-central-1}
+      FLOCI_DEFAULT_ACCOUNT_ID: ${AWS_ACCOUNT_ID:-000000000000}
+      FLOCI_STORAGE_MODE: ${FLOCI_STORAGE_MODE:-hybrid}
+      FLOCI_STORAGE_PERSISTENT_PATH: /app/data
+      FLOCI_SERVICES_DOCKER_NETWORK: dea_floci_net
+      FLOCI_DOCKER_LOG_MAX_SIZE: 10m
+      FLOCI_DOCKER_LOG_MAX_FILE: "3"
+      FLOCI_SERVICES_RDS_DEFAULT_POSTGRES_IMAGE: postgres:16.9-alpine3.21
+      FLOCI_SERVICES_MSK_DEFAULT_IMAGE: redpandadata/redpanda:v25.1.9
+      FLOCI_SERVICES_OPENSEARCH_DEFAULT_IMAGE: opensearchproject/opensearch:2.19.1
+      FLOCI_SERVICES_EKS_DEFAULT_IMAGE: rancher/k3s:v1.32.6-k3s1
+      FLOCI_SERVICES_ECR_REGISTRY_IMAGE: registry:2.8.3
+      FLOCI_SERVICES_ATHENA_DEFAULT_IMAGE: floci/floci-duck:0.2.0
+    volumes:
+      - floci-state:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4566/_floci/health', timeout=2)"]
+      interval: 10s
+      timeout: 4s
+      retries: 12
+      start_period: 10s
+    labels:
+      io.dea-floci.component: core
+      io.dea-floci.warning: docker-socket-host-access
+
+  floci-ui:
+    <<: *service-defaults
+    image: floci/floci-ui:0.2.0@sha256:03a261144e0708993c8e48b763a0edb072415feae4325f254beeb1835fa424d9
+    container_name: dea-floci-ui
+    ports:
+      - "127.0.0.1:${FLOCI_UI_PORT:-4500}:4500"
+    environment:
+      FLOCI_ENDPOINT: http://floci:4566
+      AWS_REGION: ${AWS_DEFAULT_REGION:-eu-central-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-test}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-test}
+      PORT: "4500"
+      VITE_MOCK_MODE: "false"
+    depends_on:
+      floci:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4500/"]
+      interval: 10s
+      timeout: 4s
+      retries: 12
+      start_period: 10s
+
+  mission-tracker:
+    <<: *service-defaults
+    build:
+      context: ./mission-tracker
+    image: dea-floci/mission-tracker:1.0.0
+    container_name: dea-mission-tracker
+    ports:
+      - "127.0.0.1:${MISSION_TRACKER_PORT:-3000}:3000"
+    environment:
+      PORT: "3000"
+      MISSION_PLAN_PATH: /app/content/DEA-C01_Floci_Hands-on_Missionenplan.md
+      MISSION_DATA_DIR: /app/data
+    volumes:
+      - ./content:/app/content:ro
+      - mission-progress:/app/data
+    depends_on:
+      floci:
+        condition: service_healthy
+
+  toolbox:
+    profiles: ["tools"]
+    build:
+      context: ./docker/toolbox
+    image: dea-floci/toolbox:1.0.0
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    environment:
+      <<: *aws-environment
+    volumes:
+      - ./:/workspace
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - dea_floci_net
+
+  lab:
+    <<: *service-defaults
+    profiles: ["lab"]
+    image: quay.io/jupyter/datascience-notebook:python-3.12.10
+    container_name: dea-lab
+    ports:
+      - "127.0.0.1:${JUPYTER_PORT:-8888}:8888"
+    environment:
+      <<: *aws-environment
+      JUPYTER_TOKEN: ${JUPYTER_TOKEN:-change-me-before-starting-lab}
+    command: ["start-notebook.py", "--ServerApp.token=${JUPYTER_TOKEN:-change-me-before-starting-lab}", "--ServerApp.ip=0.0.0.0"]
+    volumes:
+      - ./notebooks:/home/jovyan/work
+      - ./data/shared:/home/jovyan/data
+    depends_on:
+      floci:
+        condition: service_healthy
+
+  spark-master:
+    <<: *service-defaults
+    profiles: ["spark"]
+    build:
+      context: ./docker/spark
+    image: dea-floci/spark:3.5.6
+    container_name: dea-spark-master
+    command: ["/opt/spark/sbin/start-master.sh", "--host", "spark-master"]
+    environment:
+      <<: *aws-environment
+      SPARK_NO_DAEMONIZE: "true"
+    ports:
+      - "127.0.0.1:${SPARK_MASTER_PORT:-7077}:7077"
+      - "127.0.0.1:${SPARK_MASTER_UI_PORT:-8082}:8080"
+    volumes:
+      - ./data/shared:/workspace/data
+      - ./notebooks/spark:/workspace/notebooks
+    depends_on:
+      floci:
+        condition: service_healthy
+
+  spark-worker:
+    <<: *service-defaults
+    profiles: ["spark"]
+    image: dea-floci/spark:3.5.6
+    build:
+      context: ./docker/spark
+    container_name: dea-spark-worker
+    command: ["/opt/spark/sbin/start-worker.sh", "spark://spark-master:7077"]
+    environment:
+      <<: *aws-environment
+      SPARK_NO_DAEMONIZE: "true"
+      SPARK_WORKER_CORES: ${SPARK_WORKER_CORES:-2}
+      SPARK_WORKER_MEMORY: ${SPARK_WORKER_MEMORY:-2g}
+    ports:
+      - "127.0.0.1:${SPARK_WORKER_UI_PORT:-8083}:8081"
+    volumes:
+      - ./data/shared:/workspace/data
+    depends_on:
+      - spark-master
+
+  cdc-postgres:
+    <<: *service-defaults
+    profiles: ["cdc"]
+    image: postgres:16.9-alpine3.21
+    container_name: dea-cdc-postgres
+    command: ["postgres", "-c", "wal_level=logical", "-c", "max_wal_senders=10", "-c", "max_replication_slots=10"]
+    environment:
+      POSTGRES_DB: northstar
+      POSTGRES_USER: cdc
+      POSTGRES_PASSWORD: local-cdc-only
+    volumes:
+      - cdc-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cdc -d northstar"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  cdc-redpanda:
+    <<: *service-defaults
+    profiles: ["cdc"]
+    image: redpandadata/redpanda:v25.1.9
+    container_name: dea-cdc-redpanda
+    command: ["redpanda", "start", "--overprovisioned", "--smp", "1", "--memory", "1G", "--reserve-memory", "0M", "--node-id", "0", "--check=false", "--kafka-addr", "PLAINTEXT://0.0.0.0:9092", "--advertise-kafka-addr", "PLAINTEXT://cdc-redpanda:9092"]
+    healthcheck:
+      test: ["CMD", "rpk", "cluster", "health"]
+      interval: 8s
+      timeout: 5s
+      retries: 20
+
+  cdc-connect:
+    <<: *service-defaults
+    profiles: ["cdc"]
+    image: quay.io/debezium/connect:3.1.2.Final
+    container_name: dea-cdc-connect
+    ports:
+      - "127.0.0.1:8084:8083"
+    environment:
+      BOOTSTRAP_SERVERS: cdc-redpanda:9092
+      GROUP_ID: dea-cdc
+      CONFIG_STORAGE_TOPIC: dea_cdc_configs
+      OFFSET_STORAGE_TOPIC: dea_cdc_offsets
+      STATUS_STORAGE_TOPIC: dea_cdc_status
+    depends_on:
+      cdc-postgres:
+        condition: service_healthy
+      cdc-redpanda:
+        condition: service_healthy
+
+  airflow-db:
+    <<: *service-defaults
+    profiles: ["airflow"]
+    image: postgres:16.9-alpine3.21
+    environment:
+      POSTGRES_DB: airflow
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow-local
+    volumes:
+      - airflow-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  airflow-init:
+    profiles: ["airflow"]
+    build:
+      context: ./docker/airflow
+    image: dea-floci/airflow:2.10.5
+    user: "50000:0"
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow-local@airflow-db/airflow
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    command: ["bash", "-c", "airflow db migrate && airflow users create --username '${AIRFLOW_ADMIN_USER:-admin}' --password '${AIRFLOW_ADMIN_PASSWORD:-change-me-before-starting-airflow}' --firstname Local --lastname Admin --role Admin --email admin@localhost || true"]
+    networks:
+      - dea_floci_net
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+
+  airflow-webserver:
+    <<: *service-defaults
+    profiles: ["airflow"]
+    build:
+      context: ./docker/airflow
+    image: dea-floci/airflow:2.10.5
+    container_name: dea-airflow
+    command: webserver
+    ports:
+      - "127.0.0.1:${AIRFLOW_PORT:-8080}:8080"
+    environment:
+      <<: *aws-environment
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow-local@airflow-db/airflow
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    volumes:
+      - ./docker/airflow/dags:/opt/airflow/dags:ro
+      - ./data/shared:/opt/airflow/data
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-scheduler:
+    <<: *service-defaults
+    profiles: ["airflow"]
+    build:
+      context: ./docker/airflow
+    image: dea-floci/airflow:2.10.5
+    command: scheduler
+    environment:
+      <<: *aws-environment
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow-local@airflow-db/airflow
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    volumes:
+      - ./docker/airflow/dags:/opt/airflow/dags:ro
+      - ./data/shared:/opt/airflow/data
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+  flink-jobmanager:
+    <<: *service-defaults
+    profiles: ["flink"]
+    image: flink:1.20.2-scala_2.12-java17
+    container_name: dea-flink-jobmanager
+    command: jobmanager
+    ports:
+      - "127.0.0.1:${FLINK_PORT:-8081}:8081"
+    environment:
+      JOB_MANAGER_RPC_ADDRESS: flink-jobmanager
+    volumes:
+      - flink-checkpoints:/opt/flink/checkpoints
+
+  flink-taskmanager:
+    <<: *service-defaults
+    profiles: ["flink"]
+    image: flink:1.20.2-scala_2.12-java17
+    command: taskmanager
+    environment:
+      JOB_MANAGER_RPC_ADDRESS: flink-jobmanager
+      TASK_MANAGER_NUMBER_OF_TASK_SLOTS: "2"
+    volumes:
+      - flink-checkpoints:/opt/flink/checkpoints
+    depends_on:
+      - flink-jobmanager
+
+  vector-db:
+    <<: *service-defaults
+    profiles: ["vector"]
+    image: pgvector/pgvector:0.8.0-pg16
+    container_name: dea-vector-db
+    environment:
+      POSTGRES_DB: ${VECTOR_POSTGRES_DB:-vectors}
+      POSTGRES_USER: ${VECTOR_POSTGRES_USER:-vectors}
+      POSTGRES_PASSWORD: ${VECTOR_POSTGRES_PASSWORD:-change-me-before-starting-vector}
+    volumes:
+      - vector-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${VECTOR_POSTGRES_USER:-vectors} -d ${VECTOR_POSTGRES_DB:-vectors}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  rag-api:
+    <<: *service-defaults
+    profiles: ["rag"]
+    build:
+      context: ./docker/rag
+    image: dea-floci/rag-mock:1.0.0
+    container_name: dea-rag-api
+    ports:
+      - "127.0.0.1:${RAG_PORT:-8090}:8090"
+    volumes:
+      - ./data/vector:/app/data
+
+  bi:
+    <<: *service-defaults
+    profiles: ["bi"]
+    image: metabase/metabase:v0.54.8
+    container_name: dea-bi
+    ports:
+      - "127.0.0.1:${BI_PORT:-3001}:3000"
+    volumes:
+      - bi-data:/metabase-data
+    environment:
+      MB_DB_FILE: /metabase-data/metabase.db
+
+  prometheus:
+    <<: *service-defaults
+    profiles: ["observability"]
+    image: prom/prometheus:v3.5.0
+    container_name: dea-prometheus
+    ports:
+      - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.path=/prometheus"]
+    volumes:
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+
+  grafana:
+    <<: *service-defaults
+    profiles: ["observability"]
+    image: grafana/grafana:12.0.2
+    container_name: dea-grafana
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3002}:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-change-me-before-starting-observability}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+
+  cadvisor:
+    <<: *service-defaults
+    profiles: ["observability"]
+    image: gcr.io/cadvisor/cadvisor:v0.52.1
+    container_name: dea-cadvisor
+    privileged: true
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+
+networks:
+  dea_floci_net:
+    name: dea_floci_net
+    driver: bridge
+
+volumes:
+  floci-state:
+    labels:
+      io.dea-floci.project: dea-floci-missions
+  mission-progress:
+    labels:
+      io.dea-floci.project: dea-floci-missions
+  cdc-postgres-data:
+  airflow-db-data:
+  flink-checkpoints:
+  vector-db-data:
+  bi-data:
+  prometheus-data:
+  grafana-data:

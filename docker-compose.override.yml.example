@@ -1,0 +1,9 @@
+services:
+  spark-worker:
+    environment:
+      SPARK_WORKER_CORES: 4
+      SPARK_WORKER_MEMORY: 4g
+
+  mission-tracker:
+    ports:
+      - "127.0.0.1:3100:3000"

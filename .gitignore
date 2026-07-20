@@ -1,0 +1,14 @@
+.env
+.idea/
+.vscode/
+node_modules/
+__pycache__/
+.pytest_cache/
+.venv/
+*.py[cod]
+*.log
+data/*
+!data/*/.gitkeep
+progress/*.json
+!progress/.gitkeep
+airflow.cfg

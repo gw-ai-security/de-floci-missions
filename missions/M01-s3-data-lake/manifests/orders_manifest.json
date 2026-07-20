@@ -1,0 +1,8 @@
+﻿{
+  "bucket": "northstar-data-lake",
+  "object_key": "raw/orders/ingestion_date=2026-07-19/orders_20260719T094506Z.csv",
+  "etag": "e164166585e43b349d331c7803de041d",
+  "size_bytes": 214,
+  "processed_at": "2026-07-19T10:30:00Z",
+  "status": "INGESTED"
+}

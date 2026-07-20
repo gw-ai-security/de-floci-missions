@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtuelle Python-Umgebungen
+.venv/
+venv/
+env/
+
+# Lokale Konfiguration und Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# IDE und Editor
+.vscode/
+.idea/
+*.code-workspace
+
+# Betriebssystem
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs und temporäre Dateien
+*.log
+*.tmp
+*.temp
+~$*
+*.bak
+
+# Lokale Ausgaben und Downloads
+output/
+outputs/
+downloads/
+tmp/
+temp/
+
+# Optional erzeugte Data-Artefakte
+# Kleine, bewusst erstellte Beispieldaten in data/ und manifests/ bleiben versioniert.
+data/generated/
+manifests/generated/
+
+# Archivdateien
+*.zip
+*.tar
+*.tar.gz
