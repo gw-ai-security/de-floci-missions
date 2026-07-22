@@ -1,4 +1,4 @@
-﻿# Evidence 02 – S3 Lifecycle-Konfiguration
+# Evidence 02 – S3 Lifecycle-Konfiguration
 
 ## Testumgebung
 
@@ -21,11 +21,11 @@ Damit war zunächst keine Lifecycle-Konfiguration vorhanden.
 
 - Rule ID: `m02-version-history-management`
 - Status: `Enabled`
-- Filter Prefix: `mission-02/versioning/`
-- Nicht aktuelle Versionen:
+- Filter-Prefix: `mission-02/versioning/`
+- nicht aktuelle Versionen:
   - Transition nach 30 Tagen zu `STANDARD_IA`
   - endgültige Löschung nach 90 Tagen
-- Verwaiste Delete Marker:
+- verwaiste Delete Marker:
   - automatische Entfernung aktiviert
 
 ## Verifikation
