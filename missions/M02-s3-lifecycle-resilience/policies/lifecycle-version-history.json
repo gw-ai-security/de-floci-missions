@@ -1,0 +1,23 @@
+{
+  "Rules": [
+    {
+      "ID": "m02-version-history-management",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": "mission-02/versioning/"
+      },
+      "NoncurrentVersionTransitions": [
+        {
+          "NoncurrentDays": 30,
+          "StorageClass": "STANDARD_IA"
+        }
+      ],
+      "NoncurrentVersionExpiration": {
+        "NoncurrentDays": 90
+      },
+      "Expiration": {
+        "ExpiredObjectDeleteMarker": true
+      }
+    }
+  ]
+}
